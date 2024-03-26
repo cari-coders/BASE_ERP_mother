@@ -1,0 +1,45 @@
+@startuml
+
+
+
+
+component "Nextcloud" {
+  component "NC Filesystem" as NC_FS
+  component "NC User Managment" as NC_UM
+
+}
+
+
+Component "Authentificator" {
+  component NC_OAuth
+}
+
+NC_UM -down-> NC_OAuth
+NC_OAuth -right-> [HomeScreen]
+
+
+
+
+package "Applications" as Apps {
+    Component "APP_CARI_Finance" 
+    Component "APP_CARI_Projects"
+    Component "APP_CARI_Storage" 
+}
+
+HomeScreen -right-> Apps
+
+database "ERP_DB" {
+  folder Finance_DB{
+    [Receipts_Table]
+    [Spending_Table]
+  } 
+}
+
+
+APP_CARI_Finance --> Finance_DB
+
+
+[Backend_functionality]
+[Frontend_functionality]
+
+@enduml
