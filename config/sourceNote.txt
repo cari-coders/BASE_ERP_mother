@@ -1,0 +1,11 @@
+set -o allexport; source config/env.env; set +o allexport
+
+# virual environment:
+#installation
+sudo apt install python3.10-venv
+# create virtual environment
+python3 -m venv <name_of_virtualenv>
+# activate
+source venv/bin/activate
+# deactivate
+deactivate
