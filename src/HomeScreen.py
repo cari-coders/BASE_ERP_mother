@@ -13,7 +13,7 @@ def add_subdirectories_to_sys_path(root_dir):
 
 add_subdirectories_to_sys_path('.')
 
-from flask import Flask, redirect, url_for, request, render_template, session
+from flask import Flask, redirect, url_for, request, render_template, session, flash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from authlib.integrations.flask_client import OAuth
 import urllib.parse
@@ -22,11 +22,12 @@ import urllib.parse
 import json
 import logging
 import yaml
+from typing import List, Callable
 
 from src.Backend.src.HelperFunctions.ConfigLoader import ConfigLoader
 from src.Backend.src.HelperFunctions.Server import Server
 from urllib.parse import urlencode
-
+from functools import wraps
 
 # read logging informaation
 with open('config/config.yaml', 'r') as file:
@@ -38,8 +39,12 @@ with open('config/config.yaml', 'r') as file:
 #TODO diese Klasse koennte mehr enthalten als nur eine ID -- ist es eventuell sinnvoll user zu speichern?
 #TODO macht es sinn diese klasse ins Backend zu legen oder in die HomeScreenServer-Klasse
 class User(UserMixin):
-    def __init__(self, id):
+    def __init__(self, id, roles: List[str]): # TODO welcher type hat ID? string oder int
         self.id = id
+        self.roles = roles
+
+    def getRoles(self):
+        return self.roles
 
 class HomeScreen(Server):
     """
@@ -65,6 +70,32 @@ class HomeScreen(Server):
         self.login_manager.login_view = 'login'
 
         self.defineRoutes()
+    
+    def defineDecorators(self):
+        @staticmethod
+        def accessRestriction(requiredRoles: List[str]):
+            def decorator(f : Callable):
+                @wraps(f)
+                def wrappedFunction(*args, **kwargs):
+                    # check if the user is already authenticated (same as @login_required?) 
+                    if not current_user.is_authenticated:
+                       return redirect(url_for('home'))
+                    
+                    # convert the user.role list and the requiredRoles list into sets and check for intersections -> if they intersect, the user has the required role
+                    usersRolesSet = set(current_user.getRoles())
+                    requiredRolesSet = set(requiredRoles)
+                    setsIntersect = bool(usersRolesSet & requiredRolesSet)
+
+                    if not setsIntersect:
+                        # user does not have the required role: # TODO show an error or redirect ? Wie handeln wir das?
+                        flash('You do not have permission to access this page.')
+                        return redirect(url_for('index')) # same as '/'
+
+                    # if the sets intersect, return the wrapped function
+                    return f(*args, *kwargs)
+                return wrappedFunction
+            return decorator
+
 
     def defineRoutes(self):
         """
@@ -79,6 +110,7 @@ class HomeScreen(Server):
         
         # Home route
         @self.app.route('/')
+        @HomeScreen.accessRestriction(['role1', 'role2']) #TODO hier konnte man die verfugbaren tools an die funktion ubergeben sodass nur die tools sichtbar sind die mit den bestehenden rechten verwendet werden konnen
         def home():
             # display the buttons that direct to the tools depending on the users access rights (# TODO)
             if current_user.is_authenticated:
