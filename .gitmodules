@@ -1,0 +1,3 @@
+[submodule "src/Backend"]
+	path = src/Backend
+	url = git@github.com:cari-coders/BASE_ERP_Backend.git
