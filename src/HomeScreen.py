@@ -56,6 +56,31 @@ class HomeScreen(Server):
     - defineRoutes: Defines the Flask routes for OAuth authentication flow.
     """
 
+    # define access decorator
+    @staticmethod
+    def accessRestriction(requiredRoles: List[str]):
+        def decorator(f : Callable):
+            @wraps(f)
+            def wrappedFunction(*args, **kwargs):
+                # check if the user is already authenticated (same as @login_required?) 
+                if not current_user.is_authenticated:
+                    return redirect(url_for('home'))
+                
+                # convert the user.role list and the requiredRoles list into sets and check for intersections -> if they intersect, the user has the required role
+                usersRolesSet = set(current_user.getRoles())
+                requiredRolesSet = set(requiredRoles)
+                setsIntersect = bool(usersRolesSet & requiredRolesSet)
+
+                if not setsIntersect:
+                    # user does not have the required role: # TODO show an error or redirect ? Wie handeln wir das?
+                    flash('You do not have permission to access this page.')
+                    return redirect(url_for('index')) # same as '/'
+
+                # if the sets intersect, return the wrapped function
+                return f(*args, *kwargs)
+            return wrappedFunction
+        return decorator
+
     def __init__(self):
         """
         Initializes the HomeScreenServer instance.
@@ -71,31 +96,6 @@ class HomeScreen(Server):
 
         self.defineRoutes()
     
-    def defineDecorators(self):
-        @staticmethod
-        def accessRestriction(requiredRoles: List[str]):
-            def decorator(f : Callable):
-                @wraps(f)
-                def wrappedFunction(*args, **kwargs):
-                    # check if the user is already authenticated (same as @login_required?) 
-                    if not current_user.is_authenticated:
-                       return redirect(url_for('home'))
-                    
-                    # convert the user.role list and the requiredRoles list into sets and check for intersections -> if they intersect, the user has the required role
-                    usersRolesSet = set(current_user.getRoles())
-                    requiredRolesSet = set(requiredRoles)
-                    setsIntersect = bool(usersRolesSet & requiredRolesSet)
-
-                    if not setsIntersect:
-                        # user does not have the required role: # TODO show an error or redirect ? Wie handeln wir das?
-                        flash('You do not have permission to access this page.')
-                        return redirect(url_for('index')) # same as '/'
-
-                    # if the sets intersect, return the wrapped function
-                    return f(*args, *kwargs)
-                return wrappedFunction
-            return decorator
-
 
     def defineRoutes(self):
         """
@@ -129,13 +129,13 @@ class HomeScreen(Server):
                 urlFormat = "http"
 
             authServerIP = os.getenv("BASE_URL")
-            authServerPort = os.getenv("AUTHENTICATION_SERVER_PORT")
-            homescreenServerPort = os.getenv('HOMESCREEN_SERVER_PORT')
+            authServerPort = os.getenv("PORT_OAUTH")
+            homescreenServerPort = os.getenv('PORT_HOMESCREEN')
 
             authenticationURL =f'{urlFormat}://{authServerIP}:{authServerPort}/authenticate?callback_port={homescreenServerPort}'
             return redirect(authenticationURL)
 
-        @self.app.route('verified_callback')
+        @self.app.route('/verified_callback')
         def verifiedCallback():
 
             # this function is called from the authentication server after successfull authentication
@@ -158,8 +158,6 @@ if __name__ == '__main__':
     
     homeScreenServer = HomeScreen()
     
-    # load global config, get debug level and port
-    gcl = ConfigLoader(str(os.getenv('GLOBAL_CONFIG_PATH')))
-    debugLevel = True if gcl.data['debugLevel'] == 'True' else False
+    debugLevel = True if os.getenv("DEBUG_LEVEL") == 'True' else False
 
-    homeScreenServer.run(debug=debugLevel, port=gcl.data['ports']['NcOAuth'])
+    homeScreenServer.run(debug=debugLevel, port=os.getenv('PORT_HOMESCREEN'))
