@@ -1,0 +1,57 @@
+version: '3'
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "12000:6379"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - erp_backend
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    restart: always
+    ports:
+      - "12001:5540"
+    volumes:
+      - redis_insight_data:/data
+    networks:
+      - erp_backend
+
+  db:
+    image: mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - erp_backend
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "12002:80"
+    networks:
+      - erp_backend
+
+volumes:
+  redis_data:
+  redis_insight_data:
+  db_data:
+
+networks:
+  erp_backend:
+    driver: bridge
