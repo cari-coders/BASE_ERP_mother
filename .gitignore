@@ -1,3 +1,7 @@
+
+# dont sync databases
+*.db
+
 # dont sync vrtual environment
 venv/
 
