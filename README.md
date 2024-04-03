@@ -27,6 +27,28 @@ GLOBAL_CONFIG_PATH | path to the global config file (located in backend)
 
 Additionally, the variables required by the submodules (i.e. the Backend repo) must be specified.
 
+## Requirements
+The requirements are listed in the requirements.txt file. Currently, the file looks like this:
+```
+Authlib==1.3.0
+Flask==3.0.2
+Flask_Login==0.6.3
+flask_session==0.8.0
+PyYAML==6.0.1
+redis==5.0.3
+django
+requests
+Flask-Session
+Flask-SQLAlchemy
+pandas
+pyarrow
+```
+
+The requirements can be installed all at once using
+```bash
+pip install -r requirements.txt
+```
+
 ## Route Protection
 
 The Homescreen Server manages the access to the different routes (the subsites of the server). The access to the routes must be user specific, depending on the access rights of the user. This can be applied in the code by using decorator functions.
