@@ -14,18 +14,18 @@ def add_subdirectories_to_sys_path(root_dir):
 add_subdirectories_to_sys_path('.')
 
 from flask import Flask, redirect, url_for, request, render_template, session, flash
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+
 from authlib.integrations.flask_client import OAuth
-import urllib.parse
 
-
-import json
 import logging
 import yaml
 from typing import List, Callable
 
 from src.Backend.src.HelperFunctions.ConfigLoader import ConfigLoader
 from src.Backend.src.HelperFunctions.Server import Server
+from src.User import UserManagement
+
 from urllib.parse import urlencode
 from functools import wraps
 
@@ -34,18 +34,17 @@ with open('config/config.yaml', 'r') as file:
     # Load the YAML content
     data = yaml.safe_load(file)
     # Configuration for logging to a file
-    logging.basicConfig(filename=data['logging']['logFilePath'], filemode='w', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-#TODO diese Klasse koennte mehr enthalten als nur eine ID -- ist es eventuell sinnvoll user zu speichern?
-#TODO macht es sinn diese klasse ins Backend zu legen oder in die HomeScreenServer-Klasse
-class User(UserMixin):
-    def __init__(self, id, roles: List[str]): # TODO welcher type hat ID? string oder int
-        self.id = id
-        self.roles = roles
+    if data['logging']['logLevel'] == 'debug':
+        logLevel = logging.DEBUG
+    elif data['logging']['logLevel'] == 'info':
+        logLevel = logging.INFO
 
-    def getRoles(self):
-        return self.roles
+    logging.basicConfig(filename=data['logging']['logFilePath'], filemode='w', level=logLevel, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# db.create_all()
+
+# initiate Flask internal data base
 class HomeScreen(Server):
     """
     Represents the HomeScreen server for providing access to the different IT tools, depending on the user access rights.
@@ -54,11 +53,26 @@ class HomeScreen(Server):
     Methods:
     - __init__: Initializes the OAuth server with necessary configurations.
     - defineRoutes: Defines the Flask routes for OAuth authentication flow.
+    - accessRestriction: decorateor to protect routes of the server
     """
 
     # define access decorator
     @staticmethod
     def accessRestriction(requiredRoles: List[str]):
+        """
+        Decorator function to restrict access to routes based on user roles.
+
+        Args:
+            requiredRoles (List[str]): A list of role names required to access the route.
+
+        Returns:
+            decorator: A decorator function that restricts access based on the specified roles.
+
+        Usage:
+            @accessRestriction(['admin', 'manager'])
+            def some_protected_route():
+                # Code for the protected route
+        """
         def decorator(f : Callable):
             @wraps(f)
             def wrappedFunction(*args, **kwargs):
@@ -74,12 +88,13 @@ class HomeScreen(Server):
                 if not setsIntersect:
                     # user does not have the required role: # TODO show an error or redirect ? Wie handeln wir das?
                     flash('You do not have permission to access this page.')
-                    return redirect(url_for('index')) # same as '/'
+                    return redirect(url_for('home'))
 
                 # if the sets intersect, return the wrapped function
                 return f(*args, *kwargs)
             return wrappedFunction
         return decorator
+
 
     def __init__(self):
         """
@@ -88,6 +103,9 @@ class HomeScreen(Server):
                 
         #call parent __init__ to initialize the flask server instance
         super().__init__('HomeScreen', debugLevel = os.getenv('DEBUG_LEVEL'))
+
+        # instanciate UserManagement
+        self.userManagement = UserManagement()
 
         # Flask-Login setup
         self.login_manager = LoginManager()
@@ -106,11 +124,12 @@ class HomeScreen(Server):
         # User loader function for Flask-Login
         @self.login_manager.user_loader
         def load_user(user_id):
-            return User(user_id)
-        
+            user = self.userManagement.queryWithId(user_id)
+            return user
+
         # Home route
         @self.app.route('/')
-        @HomeScreen.accessRestriction(['role1', 'role2']) #TODO hier konnte man die verfugbaren tools an die funktion ubergeben sodass nur die tools sichtbar sind die mit den bestehenden rechten verwendet werden konnen
+        #@HomeScreen.accessRestriction(['role1', 'role2'])
         def home():
             # display the buttons that direct to the tools depending on the users access rights (# TODO)
             if current_user.is_authenticated:
@@ -140,16 +159,17 @@ class HomeScreen(Server):
 
             # this function is called from the authentication server after successfull authentication
 
-            #login user
-            user = User(session.get('nextcloudUserID'))
-            self.login_manager(user)
+            # create user instance # TODO role management
+            user = self.userManagement.getNewUserWithRoles(['role']) # TODO role management
 
-            #TODO implement acess logic (hier? oder vielleicht besser in der User-Klasse)
+            #login the user
+            login_user(user)
 
             return redirect(url_for('home'))
 
         # Logout route
         @self.app.route('/logout')
+        @HomeScreen.accessRestriction(['role'])
         def logout():
             logout_user()
             return redirect(url_for('home'))
@@ -160,4 +180,12 @@ if __name__ == '__main__':
     
     debugLevel = True if os.getenv("DEBUG_LEVEL") == 'True' else False
 
-    homeScreenServer.run(debug=debugLevel, port=os.getenv('PORT_HOMESCREEN'))
+    port = os.getenv("PORT_HOMESCREEN")
+    address = os.getenv("BASE_URL")
+    
+    logtext = f'starting Homescreen Server at: http://{address}:{port}'
+
+    logging.info(logtext)
+    print(logtext)
+    
+    homeScreenServer.run(debug=debugLevel, port=port)

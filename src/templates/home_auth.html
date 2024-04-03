@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CaRi Finanztools</title>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+        }
+        .bg-image {
+            /* The image used */
+            background-image: url('src/templates/background.jpeg'); /* Update with the path to your JPEG image */
+
+            /* Full height */
+            height: 100%;
+
+            /* Center and scale the image nicely */
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+
+            /* Display flex to center contents */
+            display: flex;
+            justify-content: center; /* Center horizontally */
+            align-items: center; /* Center vertically */
+        }
+        .menu-container {
+            text-align: center; /* Center the text (useful for the heading) */
+        }
+        .btn-menu {
+            margin: 5px; /* Spacing between buttons */
+            display: block; /* Make buttons stack vertically */
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-image">
+        <div class="container menu-container">
+            <h2>Hallo {{username}}, du bist eingeloggt</h2>
+            <div>
+                <button class="btn btn-secondary btn-menu" onclick="location.href='/logout'">Logout</button>
+                <button class="btn btn-success btn-menu" onclick="location.href='/addspendings'">Ausgabe zufügen</button>
+                <button class="btn btn-info btn-menu" onclick="location.href='/addpaybackinfo'">Ausgaben begleichen</button>
+                <button class="btn btn-info btn-menu" onclick="location.href='/adduserinfo'">Userinfos zufügen</button>
+                <button class="btn btn-info btn-menu" onclick="location.href='/viewprojecttree'">Projektbaum verändern</button>
+            </div>
+        </div>
+    </div>
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
