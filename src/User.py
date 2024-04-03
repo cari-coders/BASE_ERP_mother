@@ -49,16 +49,50 @@ class User(UserMixin):
         return self.roles
 
     def __repr__(self): 
+        """
+        representation function: meant to return an unambiguous (eindeutige) string representation of an object 
+        that can be used, for instance, to reproduce the same object when fed to the eval() function.
+
+        Returns:
+            str: a string containing unambigous information about the users id and roles.
+        """
         return f"User(id={self.id}, roles={self.roles})"
     
 class UserManagement:
-    
+    """
+    A class for managing user operations, based on the User class defined above.
+
+    Methods:
+    - __init__(self):
+        Initializes the UserManagement object with a SQLLiteHandler instance.
+
+    - getNewUserWithRoles(self, roles: List[str]):
+        Creates a new user instance with specified roles.
+        Serializes the user instance and stores it in the database.
+
+    - queryWithId(self, id: str):
+        Queries the database for a user with the specified ID.
+        Returns the user instance if found, otherwise returns None.
+    """
     def __init__(self):
+        """
+        Initializes the UserManagement object with a SQLLiteHandler instance.
+        """
         self.sqlLiteHandler = SQLLiteHandler('flaskUser')
 
 
     def getNewUserWithRoles(self, roles: List[str]):
-    
+        """
+        Creates a new user instance with specified roles.
+        Serializes the user instance and stores it in the database.
+
+        Args:
+        - roles (List[str]): List of roles for the new user.
+
+        Returns:
+        - User: Newly created user instance.
+        """
+
         # crate new user
         userInstance = User(roles)
         
@@ -72,7 +106,17 @@ class UserManagement:
         return userInstance
     
     def queryWithId(self, id: str):
-        
+        """
+        Queries the database for a user with the specified ID.
+        Returns the user instance if found, otherwise returns None.
+
+        Args:
+        - id (str): ID of the user to query.
+
+        Returns:
+        - User or None: User instance if found, otherwise None.
+        """
+               
         df = self.sqlLiteHandler.getColumnsFromTableWithCondition('id', id)
 
         # if the user is not in the databas, return None

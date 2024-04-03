@@ -124,12 +124,16 @@ class HomeScreen(Server):
         # User loader function for Flask-Login
         @self.login_manager.user_loader
         def load_user(user_id):
+            """
+            funcition provides a callback for the flask LoginManager to reload the user object from the user ID stored in the session (see https://flask-login.readthedocs.io/en/latest/). 
+
+            It should return None (not raise an exception) if the ID is not valid. (In that case, the ID will manually be removed from the session and processing will continue.)
+            """
             user = self.userManagement.queryWithId(user_id)
             return user
 
         # Home route
         @self.app.route('/')
-        #@HomeScreen.accessRestriction(['role1', 'role2'])
         def home():
             # display the buttons that direct to the tools depending on the users access rights (# TODO)
             if current_user.is_authenticated:
