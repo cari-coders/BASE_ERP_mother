@@ -8,24 +8,24 @@ The reposetory 'Backend' is included in this reposetory as submodule.
 
 The authentication process works as followed:
 
-1. a
-2. b
-3. c
+1. The home route ('/') of the Server has atm two different options, one for authenticated user displaying the tool options and the logout button, and one for users that are not authenticated yet, displaying the login button. When the unauthenticated user clicks on the login button, the Homescreen Server redirects the user to the authentication server specified in $PORT_OAUTH. The redirection contains the port of the Homescreen server specified in $PORT_HOMESCREEN as query parameter 'callback_port'. 
+2. The OAuth server deals with the authentication. After the process is complet, the OAuth server redirects the user to the '/verified_callback' route of the homescreen server. Within this function, the homescreen server logs in the user using the flask LoginManager and assigns roles to the user depending on the groups recieved from the OAuth server (nextcloud groups).
+3. All routes from the homscreen server can be protected, only granting access to users wich are part of defined groups (see below at the section 'Route Protection').
 
 
 ## Required Environment Variables
-following environment variables are loaded by the server:
+Following environment variables are loaded by the server:
 
 variable name | variable description
 ---|---
 DEBUG_LEVEL | boolean, wether debug is On or Off.
 HTTPS_ACTIVE | boolean, True if the communication between the containers is via 'https', False otherwise
-AUTHENTICATION_SERVER_PORT | Port of the server in the network (defined by 'BASE_URL') that manages the authentication (nextcloud in our case)
-HOMESCREEN_SERVER_PORT | port of the HomeScreenServer (the server defined by this reposetory)
+PORT_OAUTH | Port of the server in the network (defined by 'BASE_URL') that manages the authentication (nextcloud in our case)
+PORT_HOMESCREEN | port of the HomeScreenServer (the server defined by this reposetory)
 BASE_URL | The URL of the Network of the NcOAuthServer; the server redirects responses to defined ports in that network
 GLOBAL_CONFIG_PATH | path to the global config file (located in backend)
 
-
+Additionally, the variables required by the submodules (i.e. the Backend repo) must be specified.
 
 ## Route Protection
 
