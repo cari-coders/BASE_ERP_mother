@@ -1,2 +1,18 @@
 logging:
   logFilePath: "log.log"
+  logLevel: 'debug'
+
+SQL:
+  sqlDataBasePath: 'db.db'
+  tableDefinitionPath: '/home/matt/workspace/BASE/Finanztool/BASE_ERP_Backend/src/SQLHandler/TableDefinitions.yaml'
+  defaultTableEntries:
+    user:
+      cari:
+        #ibanEnvVariableName: 'CARI_IBAN' #name of the environment variable that holds the iban
+        nextcloudUserID: "0"
+        nextcloudDisplayName: 'CaRi'
+        iban: "iban"
+        isGuest: '0'
+        nextcloudGroups: ''
+        nextcloudEmail: ''
+        informationComplete: "1"
