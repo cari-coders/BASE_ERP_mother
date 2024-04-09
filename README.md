@@ -12,6 +12,8 @@ The authentication process works as followed:
 2. The OAuth server deals with the authentication. After the process is complet, the OAuth server redirects the user to the '/verified_callback' route of the homescreen server. Within this function, the homescreen server logs in the user using the flask LoginManager and assigns roles to the user depending on the groups recieved from the OAuth server (nextcloud groups).
 3. All routes from the homscreen server can be protected, only granting access to users wich are part of defined groups (see below at the section 'Route Protection').
 
+The flow is also visualized within the following activity diagram:
+![](https://www.planttext.com/api/plantuml/png/VP8zJmCn38Rt_0ghoy60kdT0dH18g4l5ZDB4HwFcaclijF3lSMZf9ULZY-pNhn_RMHBhn7dmIXkE2MQhoA0pRp6mCvhHmWjXce4coF9GeyYTSQCE3BF7EE3Q9CG0Qqo7iswAjkeLlhFnCTjQV0agLVpXxhwgNq32VKPYWgq48SNC23VTlBijlEuWW7MxYaTyYjy2hAFHwm-2v_Zc0cmoSmo_zXeJ4k6LiBMyq1Oown8QGIiBcd2cAPMQtd_XFCGqq8MciXzJF3WhDDBRbcDeJwrV9QuFTkPfjUrAly4vdZVQpUKShdTeNutsVgFDhbCMVywahlPH-muwxKxDortRFwI31TAzm3s5NaRMx6It_z-h9EcKF3hUIgBlCOadnB6KamfHs3pslFYg1KSGuh5jhPOOhFplJm00)
 
 ## Required Environment Variables
 Following environment variables are loaded by the server:
