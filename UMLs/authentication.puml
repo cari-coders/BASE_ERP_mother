@@ -1,0 +1,30 @@
+@startuml
+actor "Not authenticated User" as user
+participant "HomeScreen Server" as HomeScreen
+participant "OAuth Server" as OAuth
+participant "Nextcloud Server" as Nextcloud
+
+user -> HomeScreen: requests home route ('/')
+activate HomeScreen
+HomeScreen -> user: displays Login button
+user -> HomeScreen: presses Login button
+HomeScreen -> OAuth: redirects User
+activate OAuth 
+
+OAuth -> Nextcloud: redirects User
+activate Nextcloud
+
+Nextcloud -> user: displays Login Forms
+user -> Nextcloud: provides credentials
+Nextcloud -> Nextcloud: checks credentials
+Nextcloud -> OAuth: sends confirmation and users identity information
+deactivate Nextcloud
+
+OAuth -> OAuth: marks User as authenticated and safes Information
+note left: user is now authenticated
+
+OAuth -> HomeScreen: redirects to route '/verified_callback'
+deactivate OAuth
+
+HomeScreen -> user: displays Homescreen with different options
+@enduml
