@@ -1,0 +1,57 @@
+@startuml
+|frontend|
+start
+:User starts add spendings 
+from Finance homescreen;
+:User Adds receipt data
+    - payed by -> nextcloudUserId_payedBy
+    - baught by -> nextcloudUserId_boughtBy
+    - Project -> projects_temp
+    - amount -> amount
+    - description -> description
+    - receiptDate -> receiptDate;
+    - Supplier
+    - Rechnungsadresse_ID
+
+:User uploads reciept picture;
+
+:User submits Input;
+
+
+|#AntiqueWhite|backend|
+
+:receipt_data temp df is constructed;
+:check for consistency;
+
+|frontend|
+:Submit is for user accepted;
+
+|#AntiqueWhite|backend|
+:fetch metadata
+    - nc active user
+    - timestamp
+    - ....;
+
+
+switch (generate receiptId)
+    case (Human readable)
+
+    :get highest number stored in current DB;
+    :add +1;
+
+    case (machine readable)
+    :UUID generator;
+
+endswitch
+:store the receipt data in:
+    DB_Receipt;
+
+:rename receipt pic to:
+    rec_id_human;
+:store receipt_pic
+    #TODO Where?;
+
+|frontend|
+:Confirm User Data store has been successfull;
+stop
+@enduml

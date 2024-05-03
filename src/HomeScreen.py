@@ -21,10 +21,17 @@ from authlib.integrations.flask_client import OAuth
 import logging
 import yaml
 from typing import List, Callable
+import pandas as pd
 
 from src.Backend.src.HelperFunctions.ConfigLoader import ConfigLoader
 from src.Backend.src.HelperFunctions.Server import Server
 from src.User import UserManagement
+from src.Backend.src.SQLHandler.SQLHandler import SQLHandler
+
+
+from src.DashApps.AddUserInfoAppWrapper import AddUserInfoAppWrapper
+from src.DashApps.AddSpendingsAppWrapper import AddSpendingsAppWrapper
+from src.DashApps.AddPaybackInfoAppWrapper import AddPaybackInfoAppWrapper
 
 from urllib.parse import urlencode
 from functools import wraps
@@ -107,6 +114,8 @@ class HomeScreen(Server):
         # instanciate UserManagement
         self.userManagement = UserManagement()
 
+        self.sqlLiteHandlerUser = SQLHandler('user', '/home/matt/workspace/BASE/Finanztool/BASE_ERP_mother/config/TableDefinitions.yaml')
+
         # Flask-Login setup
         self.login_manager = LoginManager()
         self.login_manager.init_app(self.app)
@@ -169,14 +178,42 @@ class HomeScreen(Server):
             #login the user
             login_user(user)
 
+            #check if user is already in db and add user otherwise
+            nextcloudUserID = session.get('nextcloudUserID')
+            currentUserDisplayName = session.get('currentUserDisplayName')
+
+            #check if user is already in sql table
+            if not self.sqlLiteHandlerUser.checkIfExists('nextcloudUserID', nextcloudUserID):
+                newEntry = {
+                    "nextcloudUserID": [nextcloudUserID],
+                    "nextcloudDisplayName": [currentUserDisplayName],
+                    "isGuest": [0],
+                    "nextcloudGroups": [', '.join(session.get('nextcloudUserGroups'))],
+                    "nextcloudEmail": [session.get('nextcloudUserEmail')],
+                    "informationComplete": [0],
+                    "banking_iban": [""],
+                    "banking_account_name": [""],
+                    "banking_bic": [""]
+                }
+                self.sqlLiteHandlerUser.appendDataToTable(pd.DataFrame(newEntry))
+
             return redirect(url_for('home'))
 
         # Logout route
         @self.app.route('/logout')
-        @HomeScreen.accessRestriction(['role'])
         def logout():
             logout_user()
             return redirect(url_for('home'))
+
+
+        addUserInfoPath = '/adduserinfo/'
+        addUserInfoApp = AddUserInfoAppWrapper(self.app, url_base_pathname = addUserInfoPath)
+
+        addSpendingPath = '/addspendings/'
+        addUserInfoApp = AddSpendingsAppWrapper(self.app, url_base_pathname = addSpendingPath)
+
+        addPaybackinfoPath = '/addpaybackinfo/'
+        addUserInfoApp = AddPaybackInfoAppWrapper(self.app, url_base_pathname = addPaybackinfoPath)
 
 if __name__ == '__main__':
     

@@ -36,7 +36,7 @@ services:
     networks:
       - erp_backend
     ports:
-      - "12003:3306"
+      - "12001:3306"
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin

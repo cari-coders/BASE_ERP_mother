@@ -1,18 +1,20 @@
 logging:
   logFilePath: "log.log"
-  logLevel: 'debug'
+  logLevel: "debug"
+  
+receiptUpload:
+  uploadPath: '/home/matt/workspace/BASE/Finanztool/BASE_ERP_mother/data/ReceiptUploads'
 
 SQL:
-  sqlDataBasePath: 'db.db'
-  tableDefinitionPath: '/home/matt/workspace/BASE/Finanztool/BASE_ERP_Backend/src/SQLHandler/TableDefinitions.yaml'
-  defaultTableEntries:
-    user:
-      cari:
-        #ibanEnvVariableName: 'CARI_IBAN' #name of the environment variable that holds the iban
-        nextcloudUserID: "0"
-        nextcloudDisplayName: 'CaRi'
-        iban: "iban"
-        isGuest: '0'
-        nextcloudGroups: ''
-        nextcloudEmail: ''
-        informationComplete: "1"
+  tableDefinitionPath: "/home/matt/workspace/BASE/Finanztool/BASE_ERP_mother/config/TableDefinitions.yaml"
+#   defaultTableEntries:
+#     user:
+#       cari:
+#         #ibanEnvVariableName: 'CARI_IBAN' #name of the environment variable that holds the iban
+#         nextcloudUserID: "0"
+#         nextcloudDisplayName: 'CaRi'
+#         iban: "iban"
+#         isGuest: '0'
+#         nextcloudGroups: ''
+#         nextcloudEmail: ''
+#         informationComplete: "1"

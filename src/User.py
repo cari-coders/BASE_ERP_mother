@@ -11,7 +11,7 @@ import pandas as pd
 
 from typing import List
 
-from src.Backend.src.SQLHandler.SQLLiteHandler import SQLLiteHandler
+from src.Backend.src.SQLHandler.SQLHandler import SQLHandler
 
 class User(UserMixin):
     """
@@ -78,7 +78,7 @@ class UserManagement:
         """
         Initializes the UserManagement object with a SQLLiteHandler instance.
         """
-        self.sqlLiteHandler = SQLLiteHandler('flaskUser')
+        self.sqlLiteHandler = SQLHandler('flaskUser', '/home/matt/workspace/BASE/Finanztool/BASE_ERP_mother/config/TableDefinitions.yaml')
 
 
     def getNewUserWithRoles(self, roles: List[str]):

@@ -1,0 +1,96 @@
+tables:
+  user:
+    columns:
+      nextcloudUserId: "VARCHAR(255) PRIMARY KEY"
+      nextcloudDisplayName: "TEXT"
+      isGuest: "INTEGER"
+      nextcloudGroups: "TEXT"
+      nextcloudEmail: "TEXT"
+      informationComplete: "INTEGER DEFAULT 0"
+      banking_iban: "TEXT" #iban von dem Konto
+      banking_account_name: "TEXT" #name von dem*r kontoinhaber*in
+      banking_bic: "TEXT" # biv von dem Konto
+    defaultTableEntries:
+      cariBankAccount:
+        #ibanEnvVariableName: 'CARI_IBAN' #name of the environment variable that holds the iban
+        nextcloudUserId: "0"
+        nextcloudDisplayName: 'CaRi Konto'
+        banking_iban: "iban"
+        banking_account_name: "CaRi e.V."
+        banking_bic: "Test"
+        isGuest: '0'
+        nextcloudGroups: ''
+        nextcloudEmail: ''
+        informationComplete: "1"
+      cariCash:
+        #ibanEnvVariableName: 'CARI_IBAN' #name of the environment variable that holds the iban
+        nextcloudUserId: "1"
+        nextcloudDisplayName: 'CaRi Bargeld'
+        banking_iban: "False"
+        banking_account_name: "False"
+        banking_bic: "False"
+        isGuest: '0'
+        nextcloudGroups: ''
+        nextcloudEmail: ''
+        informationComplete: "1"
+
+  flaskUser:
+    columns:
+      id: "VARCHAR(36) PRIMARY KEY"
+      serializedInstance: "TEXT"
+
+  receipt:
+    columns:
+      receiptId: "VARCHAR(36) PRIMARY KEY"
+      nextcloudUserId_payedBy: "TEXT" #gezahlt von
+      nextcloudUserId_boughtBy: "TEXT" #gekauft im Namen von
+      amount: "DECIMAL"
+      description: "TEXT"
+      receiptDate: "TEXT"
+      projectId: "TEXT"
+      paybackDate: "TEXT"
+      imagePath: "TEXT"
+      timestamp: "TEXT"
+      grossOrNetPricing: "TEXT" # führt die rechnung die Preise der Items als Netto oder Brutto auf?
+      shippingAddress: "TEXT"
+      billingAddress: "TEXT"
+  
+  accounts: #kontenplan
+    columns:
+      accountId: "VARCHAR(36) PRIMARY KEY"
+      name: "TEXT"
+      taxRate: "TEXT"
+      description: "TEXT"
+  
+  projects: #kostenstelle
+    columns:
+      projectId: "VARCHAR(36) PRIMARY KEY"
+      name: "TEXT"
+      description: "TEXT"
+      startDate: "TEXT"
+    defaultTableEntries:
+      test:
+        projectId: "testProject"
+        name: "test1312"
+        description: "beschreibung tatarata"
+        startDate: "morgen"
+
+  receiptadresses: #Rechnungsadressen
+    columns:
+      receiptadressId: "VARCHAR(36) PRIMARY KEY"
+      name: "TEXT"
+      street: "TEXT"
+      streetNo: "TEXT"
+      postalCode: "INTEGER"
+      city: "TEXT"
+      addressAddition: "TEXT"
+    defaultTableEntries: 
+      CARI:
+        receiptadressId: "0"
+        name: "CaRi e.V."
+        street: "Leipziger Straße"
+        streetNo: "76"
+        postalCode: "01127"
+        city: "Dresden"
+        addressAddition: ""
+      

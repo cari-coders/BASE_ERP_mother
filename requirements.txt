@@ -10,3 +10,8 @@ Flask-Session
 Flask-SQLAlchemy
 pandas
 pyarrow
+dash
+dash-bootstrap-components
+pymysql
+img2pdf
+dash_uploader
