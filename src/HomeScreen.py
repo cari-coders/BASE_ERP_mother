@@ -179,13 +179,13 @@ class HomeScreen(Server):
             login_user(user)
 
             #check if user is already in db and add user otherwise
-            nextcloudUserID = session.get('nextcloudUserID')
+            nextcloudUserId = session.get('nextcloudUserId')
             currentUserDisplayName = session.get('currentUserDisplayName')
 
             #check if user is already in sql table
-            if not self.sqlLiteHandlerUser.checkIfExists('nextcloudUserID', nextcloudUserID):
+            if not self.sqlLiteHandlerUser.checkIfExists('nextcloudUserId', nextcloudUserId):
                 newEntry = {
-                    "nextcloudUserID": [nextcloudUserID],
+                    "nextcloudUserId": [nextcloudUserId],
                     "nextcloudDisplayName": [currentUserDisplayName],
                     "isGuest": [0],
                     "nextcloudGroups": [', '.join(session.get('nextcloudUserGroups'))],
