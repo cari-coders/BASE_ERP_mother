@@ -17,7 +17,7 @@ import sys
 import logging
 import yaml 
 
-
+from src.Backend.
 
 def add_subdirectories_to_sys_path(root_dir):
     """
@@ -261,7 +261,7 @@ class AddSpendingsAppWrapper:
                     newEntry = {
                         'receiptId': [str(uuid.uuid4())], #get random Universal Unique Identifier
                         'nextcloudUserId_payedBy': [bezahlt],
-                        'nextcloudUserId_boughtBy': [getaetigt],
+                        'nextcloudUserId_enteredBy': [getaetigt],
                         'projectId': [project],
                         'description': [description],
                         'amount': [betrag],
