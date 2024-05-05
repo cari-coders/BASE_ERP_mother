@@ -130,7 +130,9 @@ class AddUserInfoAppWrapper:
                         feedback = 'Die eingegebene IBAN scheint ungültig zu sein. Die Iban wurde nicht aktualisiert.'
                         preventUpdate = True
                 elif informationName == "bankingBic":
-                    if not BankingCheckHelper.checkBic(informationValue):
+                    if BankingCheckHelper.checkBic(informationValue):
+                       informationValue = BankingCheckHelper.formatBic(informationValue)
+                    else:
                         #biv is invalid
                         feedback = 'Die eingegebene BIC scheint ungültig zu sein. Die BIC wurde nicht aktualisiert.'
                         preventUpdate = True
@@ -138,10 +140,11 @@ class AddUserInfoAppWrapper:
                 if not preventUpdate: #update the database with the new value
                     # get the sql session and query the nextcloud user instance
                     setattr(nextcloudUser, informationName, informationValue)
+                    nextcloudUser.checkBankingData()
                     sqlSession.commit()
 
-            feedback1Text = "Deine Überweisungsdaten sind vollständig." if nextcloudUser.bankingDataIsComplete() else "Deine Überweisungsdaten sind noch nicht vollständig. Um Rechnungen auf deinen Namen anzugeben speichere eine Iban, den Namen der:s Kontoinhabers:in und die BIC."
-
+            feedback1Text = "Deine Überweisungsdaten sind vollständig." if nextcloudUser.checkBankingData() else "Deine Überweisungsdaten sind noch nicht vollständig. Um Rechnungen auf deinen Namen anzugeben speichere eine Iban, den Namen der:s Kontoinhabers:in und die BIC."
+            
             return feedback, dbc.Table.from_dataframe(nextcloudUser.getUserInformationAsDataFrame(forDisplay=True), striped=True, bordered=True, hover=True), informationValue, feedback1Text
             
         @self.app.callback(

@@ -70,7 +70,7 @@ class AddSpendingsAppWrapper:
 
         if onlyCompleteAccounts:
             #query the user IDs and dispaly names and filter for complete Banking Data and excludeList
-            filteredUserData = sqlSession.query(NextcloudUser.nextcloudUserId, NextcloudUser.nextcloudDisplayName, NextcloudUser.nextcloudDisplayName).filter(NextcloudUser.nextcloudDisplayName.notin_(excludeNextcloudUserDisplayNameList)).all()
+            filteredUserData = sqlSession.query(NextcloudUser.nextcloudUserId, NextcloudUser.nextcloudDisplayName, NextcloudUser.bankingDataIsComplete).filter(NextcloudUser.nextcloudDisplayName.notin_(excludeNextcloudUserDisplayNameList)).all()
             filteredUserData = ((id, name) for (id, name, isComplete) in filteredUserData if isComplete)
         else:
             filteredUserData = sqlSession.query(NextcloudUser.nextcloudUserId, NextcloudUser.nextcloudDisplayName).filter(NextcloudUser.nextcloudDisplayName.notin_(excludeNextcloudUserDisplayNameList)).all()
@@ -99,30 +99,21 @@ class AddSpendingsAppWrapper:
         return [{'label': project.name, 'value': project.id} for project in projectData]
     
     def refineReceiptDataForDisplay(self, receipts: list) -> pd.DataFrame:
-        
         #transform list into dataframe
+
+        userNameIDMapping = self.getUserIdNameMapping()
         df = pd.DataFrame([{
-                'nextcloudUserId_sender': [receipt.nextcloudUserId_sender],
-                'nextcloudUserId_reciever': [receipt.nextcloudUserId_reciever],
-                'amount': [receipt.amount],
-                'projectId': [receipt.projectId],
-                'paybackDate': [receipt.paybackDate],
-                'timestamp': [receipt.timestamp],
-                'receiptDate': [receipt.receiptDate],
-                'description': [receipt.description],
+                'nextcloudUserDisplayName_sender': userNameIDMapping[receipt.nextcloudUserId_sender],
+                'nextcloudUserDisplayName_reciever': userNameIDMapping[receipt.nextcloudUserId_reciever],
+                'amount': receipt.amount,
+                'projectName': receipt.project.name,
+                'paybackDate': receipt.paybackDate,
+                'timestamp': receipt.timestamp,
+                'receiptDate': receipt.receiptDate,
+                'description': receipt.description,
         } for receipt in receipts])
 
-        if not df.empty:
-            #map nextcloud IDs to nextcloud Names
-            userNameIDMapping = self.getUserIdNameMapping()
-            df['nextcloudUserIDisplayName_sender'] = df['nextcloudUserId_sender'].map(userNameIDMapping)
-            df['nextcloudUserDisplayName_reciever'] = df['nextcloudUserId_reciever'].map(userNameIDMapping)
-
-            projectIdNameMapping = self.getProjectDataForDropdown()
-            df['projectId'] = df['projectId'].map(projectIdNameMapping)
-
-        df.rename(columns={'nextcloudUserIDisplayName_sender': 'Bezahlt von', 'nextcloudUserDisplayName_reciever': 'bezahlt an', 'amount': 'Betrag / €', 'projectId': 'Projekt', 'description': 'Beschreibung', 'receiptDate': 'Rechnungsdatum', 'paybackDate': 'Datum Rücküberweisung', 'timestamp': 'Zeitstempel'}, inplace=True)
-
+        df.rename(columns={'nextcloudUserDisplayName_sender': 'Bezahlt von', 'nextcloudUserDisplayName_reciever': 'Bezahlt an', 'amount': 'Betrag / €', 'projectName': 'Projekt', 'description': 'Beschreibung', 'receiptDate': 'Rechnungsdatum', 'paybackDate': 'Datum Rücküberweisung', 'timestamp': 'Zeitstempel'}, inplace=True)
         return df
 
     def manageUploadedImages(self, description, fileNames, uploadID):
@@ -261,7 +252,7 @@ class AddSpendingsAppWrapper:
             #get the receipt of the current user (both, the ones that have currentUser as payed by and as bought by)
             receiptHistory = sqlSession.query(FinanceReceipt).filter(or_(FinanceReceipt.nextcloudUserId_sender == nextcloudUserId,
                                                                   FinanceReceipt.nextcloudUserId_reciever == nextcloudUserId,
-                                                                  FinanceReceipt.nextcloudUserId_enteredBy == nextcloudUserId))
+                                                                  FinanceReceipt.nextcloudUserId_enteredBy == nextcloudUserId)).all()
             
             if fileNames:
                 if not isCompleted:
@@ -275,22 +266,26 @@ class AddSpendingsAppWrapper:
                     datetimeNow = datetime.now()
 
                     newEntry = {
-                        'receiptId': [str(uuid.uuid4())], #get random Universal Unique Identifier
                         'nextcloudUserId_sender': [bezahlt],
                         'nextcloudUserId_reciever': [getaetigt],
                         'nextcloudUserId_enteredBy': [getaetigt],
-                        #'projectId': [project],
-                        #'description': [description],
-                        #'amount': [betrag],
-                        #'imagePath': imageUploadPathUnique,
-                        #'receiptDate': [date],
-                        #'paybackDate': ["-"],
-                        'timestamp': [datetimeNow.strftime('%d.%m.%Y - %H:%M:%S')]}
+                        'description': [description],
+                        'amount': [betrag],
+                        'imagePath': imageUploadPathUnique,
+                        'receiptDate': [date],
+                        'timestamp': [datetimeNow]}
                     
-                    sqlSession.add(FinanceReceipt.fromDict(newEntry))
+                    projectObj = sqlSession.query(Project).filter_by(id = project).first()
+                    newFinanceReceipt = FinanceReceipt.fromDict(newEntry)
+                    newFinanceReceipt.project = projectObj
+                    sqlSession.add(newFinanceReceipt)
+                    sqlSession.commit()
 
-                    receiptHistory = pd.concat([receiptHistory, pd.DataFrame(newEntry)], ignore_index=True)
-
+                    #get the receipt of the current user (both, the ones that have currentUser as payed by and as bought by)
+                    receiptHistory = sqlSession.query(FinanceReceipt).filter(or_(FinanceReceipt.nextcloudUserId_sender == nextcloudUserId,
+                                                                        FinanceReceipt.nextcloudUserId_reciever == nextcloudUserId,
+                                                                        FinanceReceipt.nextcloudUserId_enteredBy == nextcloudUserId)).all()
+                    sqlSession.close()
                     return 'Die Ausgabe wurde erfolgreich hinzugefügt', dbc.Table.from_dataframe(self.refineReceiptDataForDisplay(receiptHistory), striped=True, bordered=True, hover=True), "", "", "", "", ""
             
                 else:

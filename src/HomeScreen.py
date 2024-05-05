@@ -30,7 +30,7 @@ from Backend.src.SQLHandler.DatabaseSessionSetup import SqlSession, init_db
 
 from src.DashApps.AddUserInfoAppWrapper import AddUserInfoAppWrapper
 from src.DashApps.AddSpendingsAppWrapper import AddSpendingsAppWrapper
-# from src.DashApps.AddPaybackInfoAppWrapper import AddPaybackInfoAppWrapper
+from src.DashApps.AddPaybackInfoAppWrapper import AddPaybackInfoAppWrapper
 
 from urllib.parse import urlencode
 from functools import wraps
@@ -133,7 +133,7 @@ class HomeScreen(Server):
             It should return None (not raise an exception) if the ID is not valid. (In that case, the ID will manually be removed from the session and processing will continue.)
             """
             sqlSession = SqlSession()
-            user = sqlSession.query(FlaskUser).get(user_id)
+            user = sqlSession.query(FlaskUser).filter(FlaskUser.id == user_id).first()
             sqlSession.close()
             return user
 
@@ -215,8 +215,8 @@ class HomeScreen(Server):
         addSpendingPath = '/addspendings/'
         addUserInfoApp = AddSpendingsAppWrapper(self.app, url_base_pathname = addSpendingPath)
 
-        # addPaybackinfoPath = '/addpaybackinfo/'
-        # addUserInfoApp = AddPaybackInfoAppWrapper(self.app, url_base_pathname = addPaybackinfoPath)
+        addPaybackinfoPath = '/addpaybackinfo/'
+        addUserInfoApp = AddPaybackInfoAppWrapper(self.app, url_base_pathname = addPaybackinfoPath)
 
 if __name__ == '__main__':
     

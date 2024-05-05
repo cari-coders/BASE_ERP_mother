@@ -21,7 +21,11 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 from flask import session
 from datetime import datetime
-from src.Backend.src.SQLHandler.SQLHandler import SQLHandler
+from Backend.src.SQLHandler.DatabaseSessionSetup import SqlSession
+
+from Backend.src.SQLHandler.FinancialEntitiesHelpers.Project import Project
+from Backend.src.SQLHandler.FinancialEntitiesHelpers.FiannceEntities import FinanceReceipt
+from Backend.src.SQLHandler.UserEntitiesHelpers.NextcloudUser import NextcloudUser
 
 from src.Backend.src.HelperFunctions.ConfigLoader import ConfigLoader
 #from src.FinTsHandler import FinTsHandler
@@ -29,42 +33,18 @@ from src.Backend.src.HelperFunctions.ConfigLoader import ConfigLoader
 class AddPaybackInfoAppWrapper:
     def __init__(self, server, url_base_pathname='/test/', app_title="Überweisungsmanager"):
 
-        sqlTableDefinitionPath = ConfigLoader('config/config.yaml').data["SQL"]["tableDefinitionPath"]
-
-        self.sqlHandlerReceipt = SQLHandler('receipt', sqlTableDefinitionPath)
-        self.sqlHandlerUser = SQLHandler('user', sqlTableDefinitionPath)
-        self.sqlHandlerAccounts = SQLHandler('accounts', sqlTableDefinitionPath)
-        self.sqlHandlerProjects = SQLHandler('projects', sqlTableDefinitionPath)
-        
         self.app = Dash(__name__, server=server, url_base_pathname=url_base_pathname, external_stylesheets=[dbc.themes.BOOTSTRAP])
         self.app.title = app_title
         self.setup_layout()
     
-    def getUserDataForDisplay(self) -> dict:
-        """pulls the entire user data from the respective SQL table and transforms them into a dict, having the nextcloudUserId as key and the nextcloudDisplayName as display name
+    def getUserIdNameMapping(self, reverse = False) -> dict:
+        sqlSession = SqlSession()
+        
+        userData = sqlSession.query(NextcloudUser.nextcloudDisplayName, NextcloudUser.nextcloudUserId).all()
+        # Convert list of tuples into a dictionary
+        nameIdMapping = {id: name for name, id in userData}
 
-        Returns:
-            pd.DataFrame: a dictionary with nextcloudUserId as keys and nextcloudDisplayName as value
-        """
-        #get entire user data table
-        userData = self.sqlHandlerUser.getColumnsFromTableWithCondition(None, None)
-        #extract the dictionary from it
-        return {key: value for key, value in zip(userData['nextcloudUserId'], userData['nextcloudDisplayName'])}
-    
-    def refineDataFrameForDisplay(self, df: pd.DataFrame) -> pd.DataFrame:
-        
-        userNameIDMapping = self.getUserDataForDisplay()
-        df['nextcloudDisplayName_payedBy'] = df['nextcloudUserId_payedBy'].map(userNameIDMapping)
-        df['nextcloudDisplayName_boughtBy'] = df['nextcloudUserId_boughtBy'].map(userNameIDMapping)
-    
-        dfRefined = df[['nextcloudDisplayName_payedBy', 'nextcloudDisplayName_boughtBy', 'amount', 'projectId', 'timestamp']].copy()
-        dfRefined.rename(columns={'nextcloudDisplayName_payedBy': 'Bezahlt von', 'nextcloudDisplayName_boughtBy': 'getätigt von', 'amount': 'Betrag/€', 'projectId': 'Projekt', 'timestamp': 'Ausgabe registriert am'}, inplace=True)
-        
-        #map the project node ids to the names
-        projectIdNameMapping = self.getProjectDataForDropdown()
-        dfRefined['Projekt'] = dfRefined['Projekt'].map(projectIdNameMapping)
-        
-        return dfRefined
+        return {value: key for key, value in nameIdMapping.items()} if reverse else nameIdMapping
     
     def getProjectDataForDropdown(self) -> dict:
         """pulls the entire project data from the respective SQL table and transforms them into a dict, having the name of the project as key and the projectName as display name
@@ -72,12 +52,36 @@ class AddPaybackInfoAppWrapper:
         Returns:
             pd.DataFrame: a dictionary with nextcloudUserId as keys and nextcloudDisplayName as value
         """
-        #get entire user data table
-        userData = self.sqlHandlerProjects.getColumnsFromTableWithCondition(None, None)
+
+        #instanciate sql session
+        sqlSession = SqlSession()
+
+        # fetch all projects from table
+        projectData = sqlSession.query(Project).all()
+
+        sqlSession.close()
 
         #extract the dictionary from it
-        return {key: value for key, value in zip(userData['projectId'], userData['name'])}
+        return [{'label': project.name, 'value': project.id} for project in projectData]
     
+    def refineReceiptDataForDisplay(self, receipts: list) -> pd.DataFrame:
+        #transform list into dataframe
+
+        userNameIDMapping = self.getUserIdNameMapping()
+        df = pd.DataFrame([{
+                'nextcloudUserDisplayName_sender': userNameIDMapping[receipt.nextcloudUserId_sender],
+                'nextcloudUserDisplayName_reciever': userNameIDMapping[receipt.nextcloudUserId_reciever],
+                'amount': receipt.amount,
+                'projectName': receipt.project.name,
+                'paybackDate': receipt.paybackDate,
+                'timestamp': receipt.timestamp,
+                'receiptDate': receipt.receiptDate,
+                'description': receipt.description,
+        } for receipt in receipts])
+
+        df.rename(columns={'nextcloudUserDisplayName_sender': 'Bezahlt von', 'nextcloudUserDisplayName_reciever': 'Bezahlt an', 'amount': 'Betrag / €', 'projectName': 'Projekt', 'description': 'Beschreibung', 'receiptDate': 'Rechnungsdatum', 'paybackDate': 'Datum Rücküberweisung', 'timestamp': 'Zeitstempel'}, inplace=True)
+        return df
+
     def setup_layout(self):
         self.app.layout = dbc.Container([
             html.H1(self.app.title),
@@ -109,33 +113,24 @@ class AddPaybackInfoAppWrapper:
             [State('receipt-selector', 'value')]
         )
         def update_entry(n_clicks, pathname, selected_entry):
-            data = self.sqlHandlerReceipt.getColumnsFromTableWithCondition('paybackDate', '-')
-    
+
+            sqlSession = SqlSession()
+            
             #determine from callback context which button was pressed
             clickedButtonID = [p['prop_id'] for p in dash.callback_context.triggered][0]
 
             if 'update-receipt-button' in clickedButtonID and selected_entry is not None:
                 #update the respective entry in the sql library
-                self.sqlHandlerReceipt.updateColumnCondition('receiptId', selected_entry, 'paybackDate', datetime.today().strftime('%d.%m.%Y') )
+                chosenReceipt = sqlSession.query(FinanceReceipt).filter(FinanceReceipt.id == selected_entry).first()
+                chosenReceipt.paybackDate = datetime.now()
 
-                #update the data displayed in the table
-                data = self.sqlHandlerReceipt.getColumnsFromTableWithCondition('paybackDate', '-')
-            
-            # compute dropdown options
-            data = self.sqlHandlerReceipt.getColumnsFromTableWithCondition('paybackDate', '-')
-            
-            userNameIDMapping = self.getUserDataForDisplay()
-            data['nextcloudDisplayName_payedBy'] = data['nextcloudUserId_payedBy'].map(userNameIDMapping)
-            data['nextcloudDisplayName_boughtBy'] = data['nextcloudUserId_boughtBy'].map(userNameIDMapping)
-            
-            #bring treehandler to the latest version of the table
-            projectIdNameMapping = self.getProjectDataForDropdown()
+                sqlSession.commit()
 
-            #convert the projectID into project Names
-            data['projectId'] = data['projectId'].map(projectIdNameMapping)
-            options = [{'label': f"{row['nextcloudDisplayName_boughtBy']} - {row['projectId']} - {row['amount']}€", 'value': row['receiptId']} for index, row in data.iterrows()]
+            receiptHistory = sqlSession.query(FinanceReceipt).filter(FinanceReceipt.paybackDate == None).all()
             
-            return dbc.Table.from_dataframe(self.refineDataFrameForDisplay(data), striped=True, bordered=True, hover=True), options, "default €"
+            options = [{'label': f"{receipt.nextcloudUserId_sender} - {receipt.project.name} - {receipt.amount}€", 'value': str(receipt.id)} for receipt in receiptHistory]
+            
+            return dbc.Table.from_dataframe(self.refineReceiptDataForDisplay(receiptHistory), striped=True, bordered=True, hover=True), options, "default €"
 
         @self.app.callback(
         Output('url', 'pathname'),
