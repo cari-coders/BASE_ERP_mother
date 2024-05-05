@@ -280,11 +280,11 @@ class AddSpendingsAppWrapper:
                         'nextcloudUserId_reciever': [getaetigt],
                         'nextcloudUserId_enteredBy': [getaetigt],
                         #'projectId': [project],
-                        'description': [description],
-                        'amount': [betrag],
-                        'imagePath': imageUploadPathUnique,
-                        'receiptDate': [date],
-                        'paybackDate': ["-"],
+                        #'description': [description],
+                        #'amount': [betrag],
+                        #'imagePath': imageUploadPathUnique,
+                        #'receiptDate': [date],
+                        #'paybackDate': ["-"],
                         'timestamp': [datetimeNow.strftime('%d.%m.%Y - %H:%M:%S')]}
                     
                     sqlSession.add(FinanceReceipt.fromDict(newEntry))
