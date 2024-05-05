@@ -1,6 +1,7 @@
 
 # dont sync databases
 *.db
+data/ReceiptUploads
 
 # dont sync vrtual environment
 venv/
