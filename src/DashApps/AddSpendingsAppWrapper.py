@@ -1,3 +1,20 @@
+
+import os
+import sys
+
+def add_subdirectories_to_sys_path(root_dir):
+    """
+    Adds all subdirectories under the specified root directory to sys.path
+    to make them available for import.
+    """
+    for subdir, dirs, files in os.walk(root_dir):
+        if subdir not in sys.path:
+            sys.path.append(subdir)
+
+add_subdirectories_to_sys_path('.')
+add_subdirectories_to_sys_path('./src/Backend/FinancialEntitiesHelper')
+
+
 # dash_app.py
 import dash
 from dash import Dash, dcc, html, Input, Output, State
@@ -11,39 +28,18 @@ import dash_uploader as du
 from datetime import datetime, date
 import uuid
 
-import os
-import sys
+from Backend.src.SQLHandler.DatabaseSessionSetup import SqlSession
+from sqlalchemy.sql import or_
 
-import logging
-import yaml 
-
-from src.Backend.
-
-def add_subdirectories_to_sys_path(root_dir):
-    """
-    Adds all subdirectories under the specified root directory to sys.path
-    to make them available for import.
-    """
-    for subdir, dirs, files in os.walk(root_dir):
-        if subdir not in sys.path:
-            sys.path.append(subdir)
-
-add_subdirectories_to_sys_path('.')
-
-from src.Backend.src.SQLHandler.SQLHandler import SQLHandler
-#from src.Backend.src.ProjectTreeHandler.ProjectTreeHandler import TreeHandler
+from Backend.src.SQLHandler.FinancialEntitiesHelpers.Project import Project
+from Backend.src.SQLHandler.FinancialEntitiesHelpers.FiannceEntities import FinanceReceipt
+from Backend.src.SQLHandler.UserEntitiesHelpers.NextcloudUser import NextcloudUser
 
 from src.Backend.src.HelperFunctions.ConfigLoader import ConfigLoader
-
 class AddSpendingsAppWrapper:
     def __init__(self, server = None, url_base_pathname = '/test/', app_title="AddSpendingsInterface"):
 
-        sqlTableDefinitionPath = ConfigLoader('config/config.yaml').data["SQL"]["tableDefinitionPath"]
-
-        self.sqlHandlerReceipt = SQLHandler('receipt', sqlTableDefinitionPath)
-        self.sqlHandlerUser = SQLHandler('user', sqlTableDefinitionPath)
-        self.sqlHandlerAccounts = SQLHandler('accounts', sqlTableDefinitionPath)
-        self.sqlHandlerProjects = SQLHandler('projects', sqlTableDefinitionPath)
+#        self.financialEntitieshandler = FinancialEntitiesHandler()
 
         self.app = Dash(__name__, server = server, url_base_pathname = url_base_pathname, external_stylesheets=[dbc.themes.BOOTSTRAP])
         self.app.title = app_title
@@ -54,27 +50,35 @@ class AddSpendingsAppWrapper:
 
         self.setup_layout()
 
+    def getUserIdNameMapping(self, reverse = False) -> dict:
+        sqlSession = SqlSession()
+        
+        userData = sqlSession.query(NextcloudUser.nextcloudDisplayName, NextcloudUser.nextcloudUserId).all()
+        # Convert list of tuples into a dictionary
+        nameIdMapping = {id: name for name, id in userData}
+
+        return {value: key for key, value in nameIdMapping.items()} if reverse else nameIdMapping
+
     def getUserDataForDropdown(self, onlyCompleteAccounts:bool = False, excludeNextcloudUserDisplayNameList: list = []) -> dict:
         """pulls the entire user data from the respective SQL table and transforms them into a dict, having the nextcloudUserId as key and the nextcloudDisplayName as display name
 
         Returns:
             pd.DataFrame: a dictionary with nextcloudUserId as keys and nextcloudDisplayName as value
         """
-        #get entire user data table
-        userData = self.sqlHandlerUser.getColumnsFromTableWithCondition(None, None)
-        #extract the dictionary from it
-        # if specified, only return the coimplete users (which have an iban)
-        returnDict = {key: value for key, value in zip(userData['nextcloudUserId'], userData['nextcloudDisplayName'])}
-        
-        # if specified, only return accounts that provide all necessary banking information
+        # query the dict keys and values from the sql data base
+        sqlSession = SqlSession()
+
         if onlyCompleteAccounts:
-            userData = userData[userData['informationComplete'] == 1]
-
-        # remove columns which have a nextcloudUserId included in excludeNextcloudUserIdList
-        userData = userData[~userData['nextcloudDisplayName'].isin(excludeNextcloudUserDisplayNameList)]
-
+            #query the user IDs and dispaly names and filter for complete Banking Data and excludeList
+            filteredUserData = sqlSession.query(NextcloudUser.nextcloudUserId, NextcloudUser.nextcloudDisplayName, NextcloudUser.nextcloudDisplayName).filter(NextcloudUser.nextcloudDisplayName.notin_(excludeNextcloudUserDisplayNameList)).all()
+            filteredUserData = ((id, name) for (id, name, isComplete) in filteredUserData if isComplete)
+        else:
+            filteredUserData = sqlSession.query(NextcloudUser.nextcloudUserId, NextcloudUser.nextcloudDisplayName).filter(NextcloudUser.nextcloudDisplayName.notin_(excludeNextcloudUserDisplayNameList)).all()
+        
+        sqlSession.close()
+        
         #extract the dictionary from the dataframe
-        return {key: value for key, value in zip(userData['nextcloudUserId'], userData['nextcloudDisplayName'])}
+        return [{'label':name, 'value': id} for id, name in filteredUserData]
 
     def getProjectDataForDropdown(self) -> dict:
         """pulls the entire project data from the respective SQL table and transforms them into a dict, having the name of the project as key and the projectName as display name
@@ -82,31 +86,44 @@ class AddSpendingsAppWrapper:
         Returns:
             pd.DataFrame: a dictionary with nextcloudUserId as keys and nextcloudDisplayName as value
         """
-        #get entire user data table
-        userData = self.sqlHandlerProjects.getColumnsFromTableWithCondition(None, None)
+
+        #instanciate sql session
+        sqlSession = SqlSession()
+
+        # fetch all projects from table
+        projectData = sqlSession.query(Project).all()
+
+        sqlSession.close()
 
         #extract the dictionary from it
-        return {key: value for key, value in zip(userData['projectId'], userData['name'])}
+        return [{'label': project.name, 'value': project.id} for project in projectData]
     
-    def refineDataFrameForDisplay(self, df: pd.DataFrame) -> pd.DataFrame:
+    def refineReceiptDataForDisplay(self, receipts: list) -> pd.DataFrame:
         
-        #map nextcloud IDs to nextcloud Names
-        userNameIDMapping = self.getUserDataForDropdown()
-        df['nextcloudDisplayName_payedBy'] = df['nextcloudUserId_payedBy'].map(userNameIDMapping)
-        df['nextcloudDisplayName_boughtBy'] = df['nextcloudUserId_boughtBy'].map(userNameIDMapping)
+        #transform list into dataframe
+        df = pd.DataFrame([{
+                'nextcloudUserId_sender': [receipt.nextcloudUserId_sender],
+                'nextcloudUserId_reciever': [receipt.nextcloudUserId_reciever],
+                'amount': [receipt.amount],
+                'projectId': [receipt.projectId],
+                'paybackDate': [receipt.paybackDate],
+                'timestamp': [receipt.timestamp],
+                'receiptDate': [receipt.receiptDate],
+                'description': [receipt.description],
+        } for receipt in receipts])
 
-        projectIdNameMapping = self.getProjectDataForDropdown()
-        df['projectId'] = df['projectId'].map(projectIdNameMapping)
+        if not df.empty:
+            #map nextcloud IDs to nextcloud Names
+            userNameIDMapping = self.getUserIdNameMapping()
+            df['nextcloudUserIDisplayName_sender'] = df['nextcloudUserId_sender'].map(userNameIDMapping)
+            df['nextcloudUserDisplayName_reciever'] = df['nextcloudUserId_reciever'].map(userNameIDMapping)
 
-        dfRefined = df[['nextcloudDisplayName_payedBy', 'nextcloudDisplayName_boughtBy', 'amount', 'projectId', 'paybackDate', 'timestamp', 'receiptDate', 'description']].copy()
-        dfRefined.rename(columns={'nextcloudDisplayName_payedBy': 'Bezahlt von', 'nextcloudDisplayName_boughtBy': 'Getätigt von', 'amount': 'Betrag / €', 'projectId': 'Projekt', 'description': 'Beschreibung', 'receiptDate': 'Rechnungsdatum', 'paybackDate': 'Datum Rücküberweisung', 'timestamp': 'Zeitstempel'}, inplace=True)
-        
-        #bring treehandler to the latest version of the table
-        #map the project node ids to the names
-        #projectTreeNodeIDNameMapping = self.projectTreeHandler.getNameIdMapping(reverse=True)
-        #dfRefined['Projekt'] = dfRefined['Projekt'].map(projectTreeNodeIDNameMapping)
+            projectIdNameMapping = self.getProjectDataForDropdown()
+            df['projectId'] = df['projectId'].map(projectIdNameMapping)
 
-        return dfRefined
+        df.rename(columns={'nextcloudUserIDisplayName_sender': 'Bezahlt von', 'nextcloudUserDisplayName_reciever': 'bezahlt an', 'amount': 'Betrag / €', 'projectId': 'Projekt', 'description': 'Beschreibung', 'receiptDate': 'Rechnungsdatum', 'paybackDate': 'Datum Rücküberweisung', 'timestamp': 'Zeitstempel'}, inplace=True)
+
+        return df
 
     def manageUploadedImages(self, description, fileNames, uploadID):
         # transform the images into a single pdf if not already; provide a unique filename for the image
@@ -205,9 +222,9 @@ class AddSpendingsAppWrapper:
         )
         def updateDropdownOptions(pathname):
             
-            optionsUserNamesComplete = [{'label': name, 'value': userid} for userid, name in self.getUserDataForDropdown(onlyCompleteAccounts = True).items()]
-            optionsUserNamesInComplete = [{'label': name, 'value': userid} for userid, name in self.getUserDataForDropdown(onlyCompleteAccounts = False, excludeNextcloudUserDisplayNameList=['CaRi Konto', 'CaRi Bargeld']).items()]
-            optionsProjects = [{'label': name, 'value': projectid} for projectid, name in self.getProjectDataForDropdown().items()] #TODO auf projekte umändern
+            optionsUserNamesComplete = self.getUserDataForDropdown(onlyCompleteAccounts = True)
+            optionsUserNamesInComplete =self.getUserDataForDropdown(onlyCompleteAccounts = False, excludeNextcloudUserDisplayNameList=['CaRi Konto', 'CaRi Bargeld'])
+            optionsProjects = self.getProjectDataForDropdown()
             return optionsUserNamesComplete, optionsUserNamesInComplete, optionsProjects
 
         # callback to save the information and update the table when 'submit' is clicked
@@ -235,17 +252,16 @@ class AddSpendingsAppWrapper:
             #determin from callback context which button was pressed
             clickedButtonID = [p['prop_id'] for p in dash.callback_context.triggered][0]
             
+            #instanciate sqlSession
+            sqlSession = SqlSession()
+
             #get userid from session
             nextcloudUserId = session.get('nextcloudUserId')
+
             #get the receipt of the current user (both, the ones that have currentUser as payed by and as bought by)
-            receiptHistory = pd.concat([
-                                self.sqlHandlerReceipt.getColumnsFromTableWithCondition('nextcloudUserId_payedBy', nextcloudUserId),
-                                self.sqlHandlerReceipt.getColumnsFromTableWithCondition('nextcloudUserId_boughtBy', nextcloudUserId)
-                            ],
-                            ignore_index=True,
-            )
-            #drop duplicates based on the receipt ID
-            receiptHistory = receiptHistory.drop_duplicates(subset=['receiptId'], keep='first')
+            receiptHistory = sqlSession.query(FinanceReceipt).filter(or_(FinanceReceipt.nextcloudUserId_sender == nextcloudUserId,
+                                                                  FinanceReceipt.nextcloudUserId_reciever == nextcloudUserId,
+                                                                  FinanceReceipt.nextcloudUserId_enteredBy == nextcloudUserId))
             
             if fileNames:
                 if not isCompleted:
@@ -260,9 +276,10 @@ class AddSpendingsAppWrapper:
 
                     newEntry = {
                         'receiptId': [str(uuid.uuid4())], #get random Universal Unique Identifier
-                        'nextcloudUserId_payedBy': [bezahlt],
+                        'nextcloudUserId_sender': [bezahlt],
+                        'nextcloudUserId_reciever': [getaetigt],
                         'nextcloudUserId_enteredBy': [getaetigt],
-                        'projectId': [project],
+                        #'projectId': [project],
                         'description': [description],
                         'amount': [betrag],
                         'imagePath': imageUploadPathUnique,
@@ -270,16 +287,16 @@ class AddSpendingsAppWrapper:
                         'paybackDate': ["-"],
                         'timestamp': [datetimeNow.strftime('%d.%m.%Y - %H:%M:%S')]}
                     
-                    self.sqlHandlerReceipt.appendDataToTable(pd.DataFrame(newEntry))
-                    
+                    sqlSession.add(FinanceReceipt.fromDict(newEntry))
+
                     receiptHistory = pd.concat([receiptHistory, pd.DataFrame(newEntry)], ignore_index=True)
 
-                    return 'Die Ausgabe wurde erfolgreich hinzugefügt', dbc.Table.from_dataframe(self.refineDataFrameForDisplay(receiptHistory), striped=True, bordered=True, hover=True), "", "", "", "", ""
+                    return 'Die Ausgabe wurde erfolgreich hinzugefügt', dbc.Table.from_dataframe(self.refineReceiptDataForDisplay(receiptHistory), striped=True, bordered=True, hover=True), "", "", "", "", ""
             
                 else:
-                    return 'Die Informationen sind nicht vollständig.', dbc.Table.from_dataframe(self.refineDataFrameForDisplay(receiptHistory), striped=True, bordered=True, hover=True), bezahlt, getaetigt, project, betrag, description
+                    return 'Die Informationen sind nicht vollständig.', dbc.Table.from_dataframe(self.refineReceiptDataForDisplay(receiptHistory), striped=True, bordered=True, hover=True), bezahlt, getaetigt, project, betrag, description
 
-            return '', dbc.Table.from_dataframe(self.refineDataFrameForDisplay(receiptHistory), striped=True, bordered=True, hover=True), bezahlt, getaetigt, project, betrag, description
+            return '', dbc.Table.from_dataframe(self.refineReceiptDataForDisplay(receiptHistory), striped=True, bordered=True, hover=True), bezahlt, getaetigt, project, betrag, description
 
 
         # define a callback that informas the user about which files have been uploaded yet

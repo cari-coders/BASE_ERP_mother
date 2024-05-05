@@ -33,6 +33,17 @@ tables:
         nextcloudGroups: ''
         nextcloudEmail: ''
         informationComplete: "1"
+      extern:
+        #ibanEnvVariableName: 'CARI_IBAN' #name of the environment variable that holds the iban
+        nextcloudUserId: "2"
+        nextcloudDisplayName: 'Extern'
+        banking_iban: "False"
+        banking_account_name: "False"
+        banking_bic: "False"
+        isGuest: '1'
+        nextcloudGroups: ''
+        nextcloudEmail: ''
+        informationComplete: "1"
 
   flaskUser:
     columns:

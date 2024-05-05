@@ -16,8 +16,6 @@ add_subdirectories_to_sys_path('.')
 from flask import Flask, redirect, url_for, request, render_template, session, flash
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 
-from authlib.integrations.flask_client import OAuth
-
 import logging
 import yaml
 from typing import List, Callable
@@ -25,13 +23,14 @@ import pandas as pd
 
 from src.Backend.src.HelperFunctions.ConfigLoader import ConfigLoader
 from src.Backend.src.HelperFunctions.Server import Server
-from src.User import UserManagement
-from src.Backend.src.SQLHandler.SQLHandler import SQLHandler
+from Backend.src.SQLHandler.UserEntitiesHelpers.FlaskUser import FlaskUser
+from Backend.src.SQLHandler.UserEntitiesHelpers.NextcloudUser import NextcloudUser
 
+from Backend.src.SQLHandler.DatabaseSessionSetup import SqlSession, init_db
 
 from src.DashApps.AddUserInfoAppWrapper import AddUserInfoAppWrapper
 from src.DashApps.AddSpendingsAppWrapper import AddSpendingsAppWrapper
-from src.DashApps.AddPaybackInfoAppWrapper import AddPaybackInfoAppWrapper
+# from src.DashApps.AddPaybackInfoAppWrapper import AddPaybackInfoAppWrapper
 
 from urllib.parse import urlencode
 from functools import wraps
@@ -49,7 +48,6 @@ with open('config/config.yaml', 'r') as file:
 
     logging.basicConfig(filename=data['logging']['logFilePath'], filemode='w', level=logLevel, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# db.create_all()
 
 # initiate Flask internal data base
 class HomeScreen(Server):
@@ -108,13 +106,9 @@ class HomeScreen(Server):
         Initializes the HomeScreenServer instance.
         """
                 
+        init_db()
         #call parent __init__ to initialize the flask server instance
         super().__init__('HomeScreen', debugLevel = os.getenv('DEBUG_LEVEL'))
-
-        # instanciate UserManagement
-        self.userManagement = UserManagement()
-
-        self.sqlLiteHandlerUser = SQLHandler('user', '/home/matt/workspace/BASE/Finanztool/BASE_ERP_mother/config/TableDefinitions.yaml')
 
         # Flask-Login setup
         self.login_manager = LoginManager()
@@ -138,7 +132,9 @@ class HomeScreen(Server):
 
             It should return None (not raise an exception) if the ID is not valid. (In that case, the ID will manually be removed from the session and processing will continue.)
             """
-            user = self.userManagement.queryWithId(user_id)
+            sqlSession = SqlSession()
+            user = sqlSession.query(FlaskUser).get(user_id)
+            sqlSession.close()
             return user
 
         # Home route
@@ -172,31 +168,38 @@ class HomeScreen(Server):
 
             # this function is called from the authentication server after successfull authentication
 
-            # create user instance # TODO role management
-            user = self.userManagement.getNewUserWithRoles(['role']) # TODO role management
+            # create FlaskUser instance
+            flaskUser = FlaskUser()
+            flaskUser.setRoles(session["nextcloudUserGroups"])
 
-            #login the user
-            login_user(user)
+            #create SQL session
+            sqlSession = SqlSession()
+
+            #add FlaskUser to SQL data base and commit
+            sqlSession.add(flaskUser)
+            sqlSession.commit()
+
+            #login the FlaskUser
+            login_user(flaskUser)
 
             #check if user is already in db and add user otherwise
             nextcloudUserId = session.get('nextcloudUserId')
             currentUserDisplayName = session.get('currentUserDisplayName')
 
-            #check if user is already in sql table
-            if not self.sqlLiteHandlerUser.checkIfExists('nextcloudUserId', nextcloudUserId):
+            # check if user is already in sql table
+            if sqlSession.query(NextcloudUser).filter(NextcloudUser.nextcloudUserId == nextcloudUserId).first() is None:
                 newEntry = {
                     "nextcloudUserId": [nextcloudUserId],
                     "nextcloudDisplayName": [currentUserDisplayName],
                     "isGuest": [0],
                     "nextcloudGroups": [', '.join(session.get('nextcloudUserGroups'))],
                     "nextcloudEmail": [session.get('nextcloudUserEmail')],
-                    "informationComplete": [0],
-                    "banking_iban": [""],
-                    "banking_account_name": [""],
-                    "banking_bic": [""]
                 }
-                self.sqlLiteHandlerUser.appendDataToTable(pd.DataFrame(newEntry))
+                nextcloudUser = NextcloudUser.fromDict(newEntry)
+                sqlSession.add(nextcloudUser)
+                sqlSession.commit()
 
+            sqlSession.close()
             return redirect(url_for('home'))
 
         # Logout route
@@ -212,8 +215,8 @@ class HomeScreen(Server):
         addSpendingPath = '/addspendings/'
         addUserInfoApp = AddSpendingsAppWrapper(self.app, url_base_pathname = addSpendingPath)
 
-        addPaybackinfoPath = '/addpaybackinfo/'
-        addUserInfoApp = AddPaybackInfoAppWrapper(self.app, url_base_pathname = addPaybackinfoPath)
+        # addPaybackinfoPath = '/addpaybackinfo/'
+        # addUserInfoApp = AddPaybackInfoAppWrapper(self.app, url_base_pathname = addPaybackinfoPath)
 
 if __name__ == '__main__':
     
